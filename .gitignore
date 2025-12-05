@@ -16,6 +16,7 @@ env/
 # Logs and temp
 *.log
 *.tmp
+testimage.jpg
 
 # OS / editor junk
 .DS_Store

@@ -3,7 +3,20 @@ import numpy as np
 import math
 
 def read_clock(roi):
-    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    # Validate ROI before processing
+    if roi is None or roi.size == 0:
+        return (0, 0)
+    
+    # Check if ROI has valid dimensions
+    if roi.shape[0] < 10 or roi.shape[1] < 10:
+        return (0, 0)
+    
+    try:
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    except cv2.error as e:
+        print(f"[Warning] cvtColor failed: {e}")
+        return (0, 0)
+    
     thres = cv2.adaptiveThreshold(
         gray, 255,
         cv2.ADAPTIVE_THRESH_MEAN_C,
@@ -19,7 +32,7 @@ def read_clock(roi):
     )
 
     if lines is None:
-        return (0,0)
+        return (0, 0)
 
     center = (roi.shape[1]//2, roi.shape[0]//2)
 
@@ -27,7 +40,7 @@ def read_clock(roi):
     minute_angle = None
 
     for line in lines:
-        x1,y1,x2,y2 = line[0]
+        x1, y1, x2, y2 = line[0]
         dx = x2 - x1
         dy = y1 - y2
         ang = math.degrees(math.atan2(dy, dx))
@@ -41,7 +54,7 @@ def read_clock(roi):
             hour_angle = ang
 
     if minute_angle is None or hour_angle is None:
-        return (0,0)
+        return (0, 0)
 
     minute = round(minute_angle / 6) % 60
     hour = round(hour_angle / 30) % 12
