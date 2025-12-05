@@ -1,0 +1,11 @@
+# INSTALL PYINSTALLER
+pip install pyinstaller
+
+# WINDOWS (.exe)
+pyinstaller --noconsole --onefile main.py
+
+# LINUX (binary)
+pyinstaller --noconsole --onefile main.py
+
+# MACOS (.app)
+pyinstaller --windowed --onefile main.py
