@@ -23,17 +23,6 @@ python main.py
 
 ---
 
-## Building (Dev)
-
-```
-pip install pyinstaller
-pyinstaller --onefile main.py
-```
-
-Binary outputs to `/dist`.
-
----
-
 ## How It Works
 
 - Captures your screen using MSS  
