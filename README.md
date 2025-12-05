@@ -14,11 +14,45 @@ Go to **Releases** → download the EXE / APP / Linux binary.
 
 OR build from source:
 
-```
+```bash
 git clone https://github.com/Mementozzz/ChronosSolver.git
 cd ChronosSolver
 pip install -r requirements.txt
 python main.py
+```
+
+---
+
+## Usage
+
+### Basic Usage (with GUI window)
+```bash
+main.exe
+```
+- Opens a window showing the detection status
+- Press **Q** or **ESC** to exit
+
+### Verbose Mode (with debug info)
+```bash
+main.exe -v
+# or
+main.exe --verbose
+```
+- Shows detailed information about each detected clock
+- Useful for troubleshooting
+
+### Headless Mode (no GUI window)
+```bash
+main.exe --no-window
+```
+- Runs without opening a window
+- Use CTRL+C to exit
+
+### Command Line Options
+```
+-v, --verbose    Enable verbose output with debug information
+--no-window      Run without GUI window (headless mode)
+-h, --help       Show help message
 ```
 
 ---
@@ -30,7 +64,27 @@ python main.py
 - Reads hour + minute hands  
 - Computes the time sum  
 - Matches it to the correct answer  
-- Prints the correct answer index  
+- Displays the answer in the GUI window and console
+
+---
+
+## Controls
+
+- **Q** or **ESC** - Exit the program (when GUI window is active)
+- **CTRL+C** - Exit the program (in console mode)
+
+---
+
+## Troubleshooting
+
+### No clocks detected?
+- Make sure the Chronos minigame is fully visible on screen
+- Try running with `-v` flag to see debug information
+- Check if your screen resolution is causing issues
+
+### Program won't close?
+- Press **Q** or **ESC** in the GUI window
+- Or use CTRL+C in the console
 
 ---
 
