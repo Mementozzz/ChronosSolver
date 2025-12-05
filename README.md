@@ -3,9 +3,7 @@ Automatically solves the Chronos time-addition minigame using real-time screen c
 
 # NOTE BEFORE DOWNLOADING: THIS ONLY WORKS FOR 3 STAR CURRENTLY
 
-✔ Auto resolution detection
-✔ Works on any screen size
-✔ Fast (<10ms)
+Should work on any screen size, open an issue with your screen resolution otherwise
 
 ---
 
