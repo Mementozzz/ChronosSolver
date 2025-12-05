@@ -1,11 +1,35 @@
 # INSTALL PYINSTALLER
 pip install pyinstaller
 
-# WINDOWS (.exe)
-pyinstaller --noconsole --onefile main.py
+# WINDOWS (.exe) - WITH CONSOLE WINDOW
+pyinstaller --onefile --hidden-import=numpy --hidden-import=cv2 --hidden-import=mss --hidden-import=numpy.core._methods --hidden-import=numpy.lib.format main.py
+
+# WINDOWS (.exe) - NO CONSOLE (GUI only)
+pyinstaller --noconsole --onefile --hidden-import=numpy --hidden-import=cv2 --hidden-import=mss --hidden-import=numpy.core._methods --hidden-import=numpy.lib.format main.py
 
 # LINUX (binary)
-pyinstaller --noconsole --onefile main.py
+pyinstaller --onefile --hidden-import=numpy --hidden-import=cv2 --hidden-import=mss --hidden-import=numpy.core._methods --hidden-import=numpy.lib.format main.py
 
 # MACOS (.app)
-pyinstaller --windowed --onefile main.py
+pyinstaller --windowed --onefile --hidden-import=numpy --hidden-import=cv2 --hidden-import=mss --hidden-import=numpy.core._methods --hidden-import=numpy.lib.format main.py
+
+# OR use the spec file (recommended):
+pyinstaller main.spec
+
+# USAGE:
+# Run with GUI window (default):
+#   main.exe
+#
+# Run with verbose debug output:
+#   main.exe -v
+#   main.exe --verbose
+#
+# Run without GUI window (headless):
+#   main.exe --no-window
+#
+# Verbose + GUI:
+#   main.exe -v
+#
+# Exit the program:
+#   - Press Q or ESC in the GUI window
+#   - Or CTRL+C in the console
