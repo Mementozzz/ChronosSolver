@@ -1,6 +1,8 @@
 # INSTALL PYINSTALLER
 pip install pyinstaller
 
+# Note that pyinstaller may need to be capitalized like this: PyInstaller
+
 # WINDOWS (.exe) - WITH CONSOLE WINDOW
 pyinstaller --onefile --hidden-import=numpy --hidden-import=cv2 --hidden-import=mss --hidden-import=numpy.core._methods --hidden-import=numpy.lib.format main.py
 
@@ -15,6 +17,7 @@ pyinstaller --windowed --onefile --hidden-import=numpy --hidden-import=cv2 --hid
 
 # OR use the spec file (recommended):
 pyinstaller main.spec
+
 
 # USAGE:
 # Run with GUI window (default):

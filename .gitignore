@@ -1,7 +1,6 @@
 # Build artifacts
 build/
 dist/
-*.spec
 
 # Python bytecode
 __pycache__/
@@ -17,6 +16,7 @@ env/
 *.log
 *.tmp
 testimage.jpg
+
 
 # OS / editor junk
 .DS_Store
