@@ -1,21 +1,132 @@
 import time
 import cv2
+import platform
 from .capture import capture_frame
 from .detector import detect_clocks
 from .clock_reader import read_clock
 from .ui import find_best_answer
 
+# Platform-specific imports for notifications
+try:
+    if platform.system() == 'Windows':
+        from win10toast import ToastNotifier  # type: ignore
+        TOAST_AVAILABLE = True
+    else:
+        TOAST_AVAILABLE = False
+except ImportError:
+    TOAST_AVAILABLE = False
+
+# Try to import plyer for cross-platform notifications
+try:
+    import plyer  # type: ignore
+    PLYER_AVAILABLE = True
+except ImportError:
+    PLYER_AVAILABLE = False
+
 class ClockSolver:
-    def __init__(self, verbose=False, show_window=True):
+    def __init__(self, verbose=False, show_window=True, enable_notifications=True):
         self.verbose = verbose
         self.show_window = show_window
+        self.enable_notifications = enable_notifications
         self.window_name = "Chronos Solver - Press 'Q' or ESC to exit"
         self.paused = False
         self.last_frame = None
         self.last_result = None
         self.last_idx = None
+        self.toaster = None
+        
+        # Initialize notification system
+        if self.enable_notifications and platform.system() == 'Windows' and TOAST_AVAILABLE:
+            try:
+                self.toaster = ToastNotifier()
+            except:
+                self.log("[Warning] Could not initialize Windows notifications", 'debug')
         
     def log(self, message, level='info'):
+        """Print message based on verbosity level"""
+        if level == 'debug' and not self.verbose:
+            return
+        print(message)
+        
+    def send_notification(self, title, message):
+        """Send a desktop notification"""
+        if not self.enable_notifications:
+            return
+        
+        try:
+            if platform.system() == 'Windows':
+                if self.toaster:
+                    # Windows 10 Toast Notification
+                    try:
+                        self.toaster.show_toast(
+                            title,
+                            message,
+                            duration=5,
+                            threaded=True
+                        )
+                    except:
+                        pass
+                elif PLYER_AVAILABLE:
+                    # Fallback to plyer
+                    from plyer import notification as plyer_notify  # type: ignore
+                    plyer_notify.notify(
+                        title=title,
+                        message=message,
+                        app_name='Chronos Solver',
+                        timeout=5
+                    )
+            elif PLYER_AVAILABLE:
+                # Linux/Mac notifications via plyer
+                from plyer import notification as plyer_notify  # type: ignore
+                plyer_notify.notify(
+                    title=title,
+                    message=message,
+                    app_name='Chronos Solver',
+                    timeout=5
+                )
+        except Exception as e:
+            self.log(f"[Warning] Could not send notification: {e}", 'debug')
+    
+    def focus_window(self):
+        """Bring the OpenCV window to the foreground"""
+        if not self.show_window:
+            return
+        
+        try:
+            # Try to set window to topmost
+            cv2.setWindowProperty(self.window_name, cv2.WND_PROP_TOPMOST, 1)
+            
+            # On Windows, also try to use win32gui if available
+            if platform.system() == 'Windows':
+                try:
+                    import win32gui  # type: ignore
+                    import win32con  # type: ignore
+                    hwnd = win32gui.FindWindow(None, self.window_name)
+                    if hwnd:
+                        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                        win32gui.SetForegroundWindow(hwnd)
+                except ImportError:
+                    pass
+                except Exception as e:
+                    self.log(f"[Debug] Could not focus window with win32gui: {e}", 'debug')
+        except Exception as e:
+            self.log(f"[Debug] Could not focus window: {e}", 'debug')
+    
+    def play_alert_sound(self):
+        """Play a system alert sound"""
+        try:
+            if platform.system() == 'Windows':
+                import winsound
+                # Play a system sound
+                winsound.MessageBeep(winsound.MB_ICONASTERISK)
+            elif platform.system() == 'Darwin':  # macOS
+                import os
+                os.system('afplay /System/Library/Sounds/Glass.aiff')
+            else:  # Linux
+                import os
+                os.system('paplay /usr/share/sounds/freedesktop/stereo/complete.oga 2>/dev/null || beep 2>/dev/null')
+        except Exception as e:
+            self.log(f"[Debug] Could not play alert sound: {e}", 'debug')
         """Print message based on verbosity level"""
         if level == 'debug' and not self.verbose:
             return
@@ -201,7 +312,8 @@ class ClockSolver:
 
                 idx = find_best_answer((total_hours, total_min), answers)
                 if idx is not None:
-                    self.log(f"✓ [ANSWER] Option {idx + 1} - {answers[idx][0]:02d}:{answers[idx][1]:02d}")
+                    answer_time = f"{answers[idx][0]:02d}:{answers[idx][1]:02d}"
+                    self.log(f"✓ [ANSWER] Option {idx + 1} - {answer_time}")
                     self.log("=" * 50)
                     self.log("[ClockSolver] Answer found! Pausing capture.")
                     self.log("[ClockSolver] Press 'R' to resume for next puzzle, or 'Q' to exit.")
@@ -212,6 +324,15 @@ class ClockSolver:
                     self.last_idx = idx
                     self.last_frame = frame.copy()
                     self.paused = True
+                    
+                    # Alert the user!
+                    self.play_alert_sound()
+                    self.send_notification(
+                        "Chronos Answer Found! ✓",
+                        f"Select Option {idx + 1} ({answer_time})"
+                    )
+                    if self.show_window:
+                        self.focus_window()
                 else:
                     self.log(f"[Warning] No exact match found for {total_hours:02d}:{total_min:02d}")
 
