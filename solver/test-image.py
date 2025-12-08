@@ -1,6 +1,6 @@
 """
 Test script to run the clock solver on a static image file
-Usage: python test-image-FOR-DEVS.py <image_path>
+Usage: python test-image.py <image_path>
 """
 import sys
 import cv2
