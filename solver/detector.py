@@ -5,20 +5,33 @@ def detect_clocks(frame):
     if frame is None or frame.size == 0:
         return None
     
+    h, w = frame.shape[:2]
+    
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (7, 7), 1)
+    blur = cv2.GaussianBlur(gray, (9, 9), 2)
 
-    edges = cv2.Canny(blur, 50, 150)
+    edges = cv2.Canny(blur, 30, 100)
+
+    # Adjust parameters based on resolution
+    # For 1080p, clocks are larger
+    if w >= 1920:  # 1080p or higher
+        min_radius = 40
+        max_radius = 100
+        min_dist = 80
+    else:  # Lower resolutions
+        min_radius = 35
+        max_radius = 120
+        min_dist = 70
 
     circles = cv2.HoughCircles(
         edges,
         cv2.HOUGH_GRADIENT,
         dp=1.2,
-        minDist=70,
-        param1=100,
-        param2=25,
-        minRadius=35,
-        maxRadius=120
+        minDist=min_dist,
+        param1=80,
+        param2=30,
+        minRadius=min_radius,
+        maxRadius=max_radius
     )
 
     if circles is None:
@@ -26,16 +39,36 @@ def detect_clocks(frame):
 
     circles = np.uint16(np.around(circles))[0]
     
-    # Need at least 16 clocks (12 equation + 4 answers)
-    if len(circles) < 16:
-        print(f"[Warning] Only found {len(circles)} circles, need 16")
+    # Auto-detect difficulty based on number of circles found
+    total_circles = len(circles)
+    
+    if total_circles >= 19:
+        # 3-star: 15 equation clocks + 1 result + 4 answers = 20 total
+        difficulty = 3
+        num_equation = 15
+        num_answers = 4
+    elif total_circles >= 6:
+        # 2-star: 2 equation clocks + 1 result + 4 answers = 7 total
+        difficulty = 2
+        num_equation = 2
+        num_answers = 4
+    elif total_circles >= 5:
+        # 1-star: 1 clock + 4 answers = 5 total (no addition, just matching)
+        difficulty = 1
+        num_equation = 1
+        num_answers = 4
+    else:
+        print(f"[Warning] Only found {total_circles} circles, need at least 5")
         return None
+
+    print(f"[Info] Detected {difficulty}-star difficulty ({num_equation} equation clock{'s' if num_equation > 1 else ''})")
 
     # Sort by y coordinate (top grid vs bottom answers)
     circles = sorted(circles, key=lambda c: c[1])
 
-    top = circles[:12]    # equation clocks
-    bottom = circles[12:16]  # answer clocks (only take first 4)
+    # Split based on detected difficulty
+    top = circles[:num_equation + 1]  # equation clocks + result clock
+    bottom = circles[num_equation + 1:num_equation + 1 + num_answers]  # answer clocks
 
     eq_rois = []
     h, w = frame.shape[:2]
@@ -81,4 +114,4 @@ def detect_clocks(frame):
         else:
             ans_rois.append(None)
 
-    return eq_rois, ans_rois
+    return eq_rois, ans_rois, difficulty
