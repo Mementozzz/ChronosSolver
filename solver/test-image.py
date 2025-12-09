@@ -5,9 +5,9 @@ Example: python test_image.py chronos.png
 """
 import sys
 import cv2
-from solver.detector import detect_clocks
-from solver.clock_reader import read_clock
-from solver.ui import find_best_answer
+from detector import detect_clocks
+from clock_reader import read_clock
+from ui import find_best_answer
 
 def test_image(image_path):
     print(f"[Test] Loading image: {image_path}")
