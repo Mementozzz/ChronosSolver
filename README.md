@@ -1,3 +1,6 @@
+# THIS BUILD IS UNSTABLE AND LIKELY DOESN'T WORK
+# ONLY FOR USE BY CONTRIBUTORS
+
 # Chronos Clock Solver
 Automatically solves the Chronos time-addition minigame using real-time screen capture + clock hand detection.
 
@@ -20,6 +23,7 @@ cd ChronosSolver
 pip install -r requirements.txt
 python main.py
 ```
+Build as executable --> Check build_instructions.txt
 
 ---
 
@@ -43,7 +47,7 @@ main.exe --verbose
 
 ### Headless Mode (no GUI window)
 ```bash
-main.exe --no-window
+ChronosSolver.exe --no-window
 ```
 - Runs without opening a window
 - Use CTRL+C to exit
@@ -72,6 +76,7 @@ main.exe --no-window
 
 - **Q** or **ESC** - Exit the program (when GUI window is active)
 - **CTRL+C** - Exit the program (in console mode)
+- **R** - Resume scanning for a clear frame (in case of false positives)
 
 ---
 
