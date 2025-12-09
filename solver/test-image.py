@@ -89,13 +89,17 @@ def test_image(image_path):
             print(f"  Answer {i+1}: Invalid ROI")
     
     # Find best match
-    idx = find_best_answer((total_hours, total_min), answers)
+    result = find_best_answer((total_hours, total_min), answers)
     
     print("\n" + "=" * 50)
-    if idx is not None:
-        print(f"✓ [ANSWER] Select Option {idx + 1} ({answers[idx][0]:02d}:{answers[idx][1]:02d})")
+    if result[0] is not None:
+        idx, time_diff = result
+        if time_diff == 0:
+            print(f"✓ [ANSWER] Select Option {idx + 1} ({answers[idx][0]:02d}:{answers[idx][1]:02d}) - EXACT MATCH")
+        else:
+            print(f"✓ [ANSWER] Select Option {idx + 1} ({answers[idx][0]:02d}:{answers[idx][1]:02d}) - Off by {time_diff} minute(s)")
     else:
-        print(f"✗ [NO MATCH] Could not find exact match for {total_hours:02d}:{total_min:02d}")
+        print(f"✗ [NO MATCH] Could not find match within 5 minutes for {total_hours:02d}:{total_min:02d}")
         print(f"  Available answers: {answers}")
     print("=" * 50)
     
@@ -121,7 +125,8 @@ def test_image(image_path):
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
     
     # Add result text
-    if idx is not None:
+    if result[0] is not None:
+        idx = result[0]
         cv2.putText(debug_frame, f"ANSWER: Option {idx + 1}", (50, 50),
                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
     
