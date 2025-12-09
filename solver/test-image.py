@@ -1,6 +1,7 @@
 """
 Test script to run the clock solver on a static image file
-Usage: python test-image.py <image_path>
+Usage: python test_image.py <image_path>
+Example: python test_image.py chronos.png
 """
 import sys
 import cv2
@@ -22,9 +23,9 @@ def test_image(image_path):
     
     # Detect clocks
     print("[Test] Detecting clocks...")
-    circles = detect_clocks(frame)
+    result = detect_clocks(frame)
     
-    if circles is None:
+    if result is None:
         print("[Error] No clocks detected in the image!")
         print("[Info] Make sure the Chronos puzzle is clearly visible and not obscured")
         
@@ -36,13 +37,22 @@ def test_image(image_path):
         print("[Debug] Saved edge detection to 'debug_edges.png'")
         return
     
-    eq_clocks, ans_clocks = circles
+    eq_clocks, ans_clocks, difficulty = result
     print(f"[Test] Found {len(eq_clocks)} equation clocks and {len(ans_clocks)} answer clocks")
+    print(f"[Test] Difficulty: {difficulty}-star")
+    
+    # Determine how many clocks to read
+    if difficulty == 1:
+        num_to_read = 1
+    elif difficulty == 2:
+        num_to_read = 2
+    else:
+        num_to_read = 15
     
     # Read equation clocks
     print("\n[Test] Reading equation clocks:")
     times = []
-    for i, roi in enumerate(eq_clocks[:-1]):  # Skip the result clock
+    for i, roi in enumerate(eq_clocks[:num_to_read]):
         if roi is not None:
             t = read_clock(roi)
             times.append(t)
@@ -52,11 +62,19 @@ def test_image(image_path):
             print(f"  Clock {i+1}: Invalid ROI")
     
     # Calculate result
-    total_minutes = sum(h * 60 + m for h, m in times)
-    total_hours = (total_minutes // 60) % 12
-    total_min = total_minutes % 60
+    print(f"\n[Result] {difficulty}-star difficulty")
     
-    print(f"\n[Result] Calculated time: {total_hours:02d}:{total_min:02d}")
+    if difficulty == 1:
+        # 1-star: no addition, just match the clock
+        total_hours = times[0][0]
+        total_min = times[0][1]
+        print(f"[Result] Match time: {total_hours:02d}:{total_min:02d}")
+    else:
+        # 2-star and 3-star: add all times
+        total_minutes = sum(h * 60 + m for h, m in times)
+        total_hours = (total_minutes // 60) % 12
+        total_min = total_minutes % 60
+        print(f"[Result] Calculated time: {total_hours:02d}:{total_min:02d}")
     
     # Read answer choices
     print("\n[Test] Reading answer choices:")
