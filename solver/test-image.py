@@ -1,15 +1,16 @@
 """
 Test script to run the clock solver on a static image file
-Usage: python test_image.py <image_path>
-Example: python test_image.py chronos.png
+Usage: python test_image.py <image_path> [--difficulty 2|3]
+Example: python test_image.py chronos.png --difficulty 2
 """
 import sys
 import cv2
+import argparse
 from detector import detect_clocks
 from clock_reader import read_clock
 from ui import find_best_answer
 
-def test_image(image_path):
+def test_image(image_path, difficulty=None):
     print(f"[Test] Loading image: {image_path}")
     
     # Load the image
@@ -23,7 +24,7 @@ def test_image(image_path):
     
     # Detect clocks
     print("[Test] Detecting clocks...")
-    result = detect_clocks(frame)
+    result = detect_clocks(frame, force_difficulty=difficulty)
     
     if result is None:
         print("[Error] No clocks detected in the image!")
@@ -141,9 +142,14 @@ def test_image(image_path):
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python test_image.py <image_path>")
-        print("Example: python test_image.py chronos_screenshot.png")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description='Test Chronos Clock Solver on a static image')
+    parser.add_argument('image_path', help='Path to the image file')
+    parser.add_argument('-d', '--difficulty', type=int, choices=[2, 3], 
+                        help='Force difficulty level (2 or 3 star)')
     
-    test_image(sys.argv[1])
+    args = parser.parse_args()
+    
+    if args.difficulty:
+        print(f"[Info] Forcing {args.difficulty}-star difficulty mode")
+    
+    test_image(args.image_path, difficulty=args.difficulty)
