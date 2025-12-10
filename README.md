@@ -1,10 +1,8 @@
-# THIS BUILD IS UNSTABLE AND LIKELY DOESN'T WORK
-## ONLY FOR USE BY CONTRIBUTORS
-
 # Chronos Clock Solver
 Automatically solves the Chronos time-addition minigame using real-time screen capture + clock hand detection.
 
-## NOTE BEFORE DOWNLOADING: THIS TOOL MAY BE UNSTABLE.
+## NOTE BEFORE DOWNLOADING: THIS TOOL MAY BE UNSTABLE. TOOL DOES NOT WORK CURRENTLY.
+
 
 Should work on any 16:9 screen resolution, open an issue with your screen resolution otherwise (other resolutions are planned too!)
 
