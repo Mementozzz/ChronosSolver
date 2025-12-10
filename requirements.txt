@@ -2,3 +2,6 @@ mss
 opencv-python
 numpy
 pyinstaller
+win10toast
+plyer
+pywin32

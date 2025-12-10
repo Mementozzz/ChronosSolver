@@ -1,9 +1,21 @@
 # Chronos Clock Solver
 Automatically solves the Chronos time-addition minigame using real-time screen capture + clock hand detection.
 
-# NOTE BEFORE DOWNLOADING: THIS ONLY WORKS FOR 3 STAR CURRENTLY
+## NOTE BEFORE DOWNLOADING: THIS TOOL MAY BE UNSTABLE. TOOL DOES NOT WORK CURRENTLY.
 
-Should work on any screen size, open an issue with your screen resolution otherwise
+
+Should work on any 16:9 screen resolution, open an issue with your screen resolution otherwise (other resolutions are planned too!)
+
+---
+
+## How It Works
+
+- Captures your screen using MSS  
+- Uses HoughCircles to detect all 16 clocks automatically  
+- Reads hour + minute hands  
+- Computes the time sum  
+- Matches it to the correct answer  
+- Displays the answer in the GUI window and console
 
 ---
 
@@ -33,14 +45,12 @@ main.exe
 - Opens a window showing the detection status
 - Press **Q** or **ESC** to exit
 
-### Verbose Mode (with debug info)
+### For debugging: (use this flag when posting an issue!)
 ```bash
 main.exe -v
 # or
 main.exe --verbose
 ```
-- Shows detailed information about each detected clock
-- Useful for troubleshooting
 
 ### Headless Mode (no GUI window)
 ```bash
@@ -55,17 +65,6 @@ ChronosSolver.exe --no-window
 --no-window      Run without GUI window (headless mode)
 -h, --help       Show help message
 ```
-
----
-
-## How It Works
-
-- Captures your screen using MSS  
-- Uses HoughCircles to detect all 16 clocks automatically  
-- Reads hour + minute hands  
-- Computes the time sum  
-- Matches it to the correct answer  
-- Displays the answer in the GUI window and console
 
 ---
 
@@ -91,5 +90,5 @@ ChronosSolver.exe --no-window
 ---
 
 ## Disclaimer
-This tool is for educational use only.  
+This tool isn't perfect.
 Use at your own risk.

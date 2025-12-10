@@ -1,25 +1,132 @@
 import time
 import cv2
+import platform
 from .capture import capture_frame
 from .detector import detect_clocks
 from .clock_reader import read_clock
 from .ui import find_best_answer
 
+# Platform-specific imports for notifications
+try:
+    if platform.system() == 'Windows':
+        from win10toast import ToastNotifier  # type: ignore
+        TOAST_AVAILABLE = True
+    else:
+        TOAST_AVAILABLE = False
+except ImportError:
+    TOAST_AVAILABLE = False
+
+# Try to import plyer for cross-platform notifications
+try:
+    import plyer  # type: ignore
+    PLYER_AVAILABLE = True
+except ImportError:
+    PLYER_AVAILABLE = False
+
 class ClockSolver:
-    def __init__(self, verbose=False, show_window=True):
+    def __init__(self, verbose=False, show_window=True, enable_notifications=True):
         self.verbose = verbose
         self.show_window = show_window
+        self.enable_notifications = enable_notifications
         self.window_name = "Chronos Solver - Press 'Q' or ESC to exit"
         self.paused = False
         self.last_frame = None
         self.last_result = None
         self.last_idx = None
+        self.toaster = None
+        
+        # Initialize notification system
+        if self.enable_notifications and platform.system() == 'Windows' and TOAST_AVAILABLE:
+            try:
+                self.toaster = ToastNotifier()
+            except:
+                self.log("[Warning] Could not initialize Windows notifications", 'debug')
         
     def log(self, message, level='info'):
         """Print message based on verbosity level"""
         if level == 'debug' and not self.verbose:
             return
         print(message)
+        
+    def send_notification(self, title, message):
+        """Send a desktop notification"""
+        if not self.enable_notifications:
+            return
+        
+        try:
+            if platform.system() == 'Windows':
+                if self.toaster:
+                    # Windows 10 Toast Notification
+                    try:
+                        self.toaster.show_toast(
+                            title,
+                            message,
+                            duration=5,
+                            threaded=True
+                        )
+                    except:
+                        pass
+                elif PLYER_AVAILABLE:
+                    # Fallback to plyer
+                    from plyer import notification as plyer_notify  # type: ignore
+                    plyer_notify.notify(
+                        title=title,
+                        message=message,
+                        app_name='Chronos Solver',
+                        timeout=5
+                    )
+            elif PLYER_AVAILABLE:
+                # Linux/Mac notifications via plyer
+                from plyer import notification as plyer_notify  # type: ignore
+                plyer_notify.notify(
+                    title=title,
+                    message=message,
+                    app_name='Chronos Solver',
+                    timeout=5
+                )
+        except Exception as e:
+            self.log(f"[Warning] Could not send notification: {e}", 'debug')
+    
+    def focus_window(self):
+        """Bring the OpenCV window to the foreground"""
+        if not self.show_window:
+            return
+        
+        try:
+            # Try to set window to topmost
+            cv2.setWindowProperty(self.window_name, cv2.WND_PROP_TOPMOST, 1)
+            
+            # On Windows, also try to use win32gui if available
+            if platform.system() == 'Windows':
+                try:
+                    import win32gui  # type: ignore
+                    import win32con  # type: ignore
+                    hwnd = win32gui.FindWindow(None, self.window_name)
+                    if hwnd:
+                        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                        win32gui.SetForegroundWindow(hwnd)
+                except ImportError:
+                    pass
+                except Exception as e:
+                    self.log(f"[Debug] Could not focus window with win32gui: {e}", 'debug')
+        except Exception as e:
+            self.log(f"[Debug] Could not focus window: {e}", 'debug')
+    
+    def play_alert_sound(self):
+        """Play a system alert sound"""
+        try:
+            if platform.system() == 'Windows':
+                import winsound
+                # Play a system sound
+                winsound.MessageBeep(winsound.MB_ICONASTERISK)
+            elif platform.system() == 'Darwin':  # macOS
+                import os
+                os.system('afplay /System/Library/Sounds/Glass.aiff')
+            else:  # Linux
+                import os
+                os.system('paplay /usr/share/sounds/freedesktop/stereo/complete.oga 2>/dev/null || beep 2>/dev/null')
+        except Exception as e:
+            self.log(f"[Debug] Could not play alert sound: {e}", 'debug')
 
     def draw_debug_info(self, frame, eq_clocks, ans_clocks, result_time, result_idx):
         """Draw detection and result information on frame"""
@@ -111,8 +218,8 @@ class ClockSolver:
                 # Normal scanning mode
                 frame = capture_frame()
 
-                circles = detect_clocks(frame)
-                if circles is None:
+                result = detect_clocks(frame)
+                if result is None:
                     consecutive_failures += 1
                     if consecutive_failures % 20 == 0:
                         self.log(f"[Warning] No clocks detected for {consecutive_failures} frames", 'debug')
@@ -130,10 +237,21 @@ class ClockSolver:
                     continue
 
                 consecutive_failures = 0
-                eq_clocks, ans_clocks = circles
+                eq_clocks, ans_clocks, difficulty = result
+
+                # Determine how many clocks to read based on difficulty
+                if difficulty == 1:
+                    num_to_read = 1  # Just one clock to match
+                    min_valid = 1
+                elif difficulty == 2:
+                    num_to_read = 2
+                    min_valid = 2
+                else:  # difficulty == 3
+                    num_to_read = 15
+                    min_valid = 12
 
                 # Validate we have enough clocks
-                if len(eq_clocks) < 11 or len(ans_clocks) < 4:
+                if len(eq_clocks) < num_to_read + 1 or len(ans_clocks) < 4:
                     self.log(f"[Warning] Not enough clocks: {len(eq_clocks)} equation, {len(ans_clocks)} answers", 'debug')
                     
                     if self.show_window:
@@ -144,10 +262,10 @@ class ClockSolver:
                     time.sleep(0.1)
                     continue
 
-                # Read the equation clocks (first 11, ignore final result clock)
+                # Read the equation clocks (all except the last result clock)
                 times = []
                 valid_clocks = 0
-                for i, roi in enumerate(eq_clocks[:-1]):
+                for i, roi in enumerate(eq_clocks[:num_to_read]):
                     if roi is not None:
                         t = read_clock(roi)
                         times.append(t)
@@ -159,8 +277,8 @@ class ClockSolver:
                         self.log(f"[Debug] Clock {i+1}: Invalid ROI", 'debug')
 
                 # Only proceed if we have enough valid clock readings
-                if valid_clocks < 8:  # At least 8 out of 11 clocks should be readable
-                    self.log(f"[Warning] Only {valid_clocks}/11 clocks readable, waiting for better frame", 'debug')
+                if valid_clocks < min_valid:
+                    self.log(f"[Warning] Only {valid_clocks}/{num_to_read} clocks readable, waiting for better frame", 'debug')
                     if self.show_window:
                         cv2.imshow(self.window_name, frame)
                         if cv2.waitKey(1) & 0xFF in [ord('q'), ord('Q'), 27]:
@@ -168,12 +286,18 @@ class ClockSolver:
                     time.sleep(0.1)
                     continue
 
-                # Compute sum of all times
-                total_minutes = sum(h * 60 + m for h, m in times)
-                total_hours = (total_minutes // 60) % 12
-                total_min = total_minutes % 60
-
-                self.log(f"[Result] Calculated time: {total_hours:02d}:{total_min:02d}")
+                # Compute sum of all times (or just use the single time for 1-star)
+                if difficulty == 1:
+                    # 1-star: no addition needed, just match the clock
+                    total_hours = times[0][0]
+                    total_min = times[0][1]
+                    self.log(f"[Result] {difficulty}-star difficulty: Match time: {total_hours:02d}:{total_min:02d}")
+                else:
+                    # 2-star and 3-star: add all times
+                    total_minutes = sum(h * 60 + m for h, m in times)
+                    total_hours = (total_minutes // 60) % 12
+                    total_min = total_minutes % 60
+                    self.log(f"[Result] {difficulty}-star difficulty: Calculated time: {total_hours:02d}:{total_min:02d}")
 
                 # Read answer choices
                 answers = []
@@ -200,8 +324,15 @@ class ClockSolver:
                     continue
 
                 idx = find_best_answer((total_hours, total_min), answers)
-                if idx is not None:
-                    self.log(f"✓ [ANSWER] Option {idx + 1} - {answers[idx][0]:02d}:{answers[idx][1]:02d}")
+                if idx is not None and idx[0] is not None:
+                    best_idx, time_diff = idx
+                    answer_time = f"{answers[best_idx][0]:02d}:{answers[best_idx][1]:02d}"
+                    
+                    if time_diff == 0:
+                        self.log(f"✓ [ANSWER] Option {best_idx + 1} - {answer_time} (exact match)")
+                    else:
+                        self.log(f"✓ [ANSWER] Option {best_idx + 1} - {answer_time} (±{time_diff} min)")
+                    
                     self.log("=" * 50)
                     self.log("[ClockSolver] Answer found! Pausing capture.")
                     self.log("[ClockSolver] Press 'R' to resume for next puzzle, or 'Q' to exit.")
@@ -209,11 +340,20 @@ class ClockSolver:
                     
                     # Store the result and pause
                     self.last_result = (total_hours, total_min)
-                    self.last_idx = idx
+                    self.last_idx = best_idx
                     self.last_frame = frame.copy()
                     self.paused = True
+                    
+                    # Alert the user!
+                    self.play_alert_sound()
+                    self.send_notification(
+                        "Chronos Answer Found! ✓",
+                        f"Select Option {best_idx + 1} ({answer_time})"
+                    )
+                    if self.show_window:
+                        self.focus_window()
                 else:
-                    self.log(f"[Warning] No exact match found for {total_hours:02d}:{total_min:02d}")
+                    self.log(f"[Warning] No match found within 5 minutes for {total_hours:02d}:{total_min:02d}")
 
                 # Display window with debug info
                 if self.show_window:
