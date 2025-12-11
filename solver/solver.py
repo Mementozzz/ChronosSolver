@@ -1,10 +1,11 @@
 import time
 import cv2
 import platform
+import numpy as np # Import numpy for array operations
 from .capture import capture_frame
 from .detector import detect_clocks
 from .clock_reader import read_clock
-from .ui import find_best_answer
+from .ui import find_best_answer 
 
 # Platform-specific imports for notifications
 try:
@@ -23,11 +24,27 @@ try:
 except ImportError:
     PLYER_AVAILABLE = False
 
+# --- EXPOSURE ADJUSTMENT ---
+def adjust_exposure(frame, brightness_offset=-50):
+    """
+    Adjusts the brightness of the frame. A negative offset darkens the image.
+    This helps increase contrast for detection on bright game backgrounds.
+    """
+    if frame is None or frame.size == 0:
+        return frame
+    # Use cv2.convertScaleAbs for a simple linear adjustment: O = alpha*I + beta
+    # alpha=1.0 for no contrast change, beta=brightness_offset (e.g., -50)
+    adjusted_frame = cv2.convertScaleAbs(frame, alpha=1.0, beta=brightness_offset)
+    return adjusted_frame
+
+
 class ClockSolver:
-    def __init__(self, verbose=False, show_window=True, enable_notifications=True):
+    # ADDED brightness_offset to __init__
+    def __init__(self, verbose=False, show_window=True, enable_notifications=True, brightness_offset=-50):
         self.verbose = verbose
         self.show_window = show_window
         self.enable_notifications = enable_notifications
+        self.brightness_offset = brightness_offset # Store the adjustment value
         self.window_name = "Chronos Solver - Press 'Q' or ESC to exit"
         self.paused = False
         self.last_frame = None
@@ -135,7 +152,8 @@ class ClockSolver:
         
         # Add semi-transparent overlay for text background
         overlay = display_frame.copy()
-        cv2.rectangle(overlay, (10, 10), (450, 180), (0, 0, 0), -1)
+        # Increased box size to fit the new exposure adjustment line
+        cv2.rectangle(overlay, (10, 10), (450, 210), (0, 0, 0), -1) 
         cv2.addWeighted(overlay, 0.7, display_frame, 0.3, 0, display_frame)
         
         # Add status text
@@ -148,6 +166,11 @@ class ClockSolver:
         status_color = (0, 255, 255) if self.paused else (255, 255, 255)
         cv2.putText(display_frame, f"Status: {status_text}", (20, y_offset),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, status_color, 1)
+        
+        y_offset += 25
+        # Draw the current pre-processing setting
+        cv2.putText(display_frame, f"Exposure Adj: {self.brightness_offset}", (20, y_offset),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 255, 255), 1)
         
         y_offset += 25
         cv2.putText(display_frame, f"Clocks detected: {len(eq_clocks)} equation, {len(ans_clocks)} answers",
@@ -177,6 +200,7 @@ class ClockSolver:
     def run(self):
         self.log("[ClockSolver] Starting Chronos Clock Solver...")
         self.log("[ClockSolver] Make sure the Chronos minigame is visible on screen!")
+        self.log(f"[ClockSolver] Using brightness offset: {self.brightness_offset}") # Report the new setting
         
         if self.show_window:
             self.log("[ClockSolver] GUI window enabled. Press 'Q' or ESC to exit, 'R' to resume.")
@@ -193,6 +217,7 @@ class ClockSolver:
                 if self.paused:
                     if self.show_window and self.last_frame is not None:
                         # Continue showing the frozen frame with answer
+                        # Note: self.last_frame now stores the adjusted frame from the last scan
                         display_frame = self.draw_debug_info(
                             self.last_frame, 
                             [], [], 
@@ -217,15 +242,22 @@ class ClockSolver:
 
                 # Normal scanning mode
                 frame = capture_frame()
+                
+                # --- NEW: Apply exposure adjustment for detection/reading ---
+                frame_for_detection = adjust_exposure(frame, self.brightness_offset)
+                # --- END NEW ---
 
-                result = detect_clocks(frame)
+                # Pass the adjusted frame to the detection function
+                result = detect_clocks(frame_for_detection) 
+
                 if result is None:
+                    # ... (failure logic)
                     consecutive_failures += 1
                     if consecutive_failures % 20 == 0:
                         self.log(f"[Warning] No clocks detected for {consecutive_failures} frames", 'debug')
                     
                     if self.show_window:
-                        # Show frame even when no clocks detected
+                        # Show original frame when no clocks are detected
                         info_frame = frame.copy()
                         cv2.putText(info_frame, "Waiting for clocks...", (50, 50),
                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
@@ -238,6 +270,8 @@ class ClockSolver:
 
                 consecutive_failures = 0
                 eq_clocks, ans_clocks, difficulty = result
+                
+                # ROIs in eq_clocks and ans_clocks are slices of frame_for_detection (the adjusted frame).
 
                 # Determine how many clocks to read based on difficulty
                 if difficulty == 1:
@@ -255,7 +289,7 @@ class ClockSolver:
                     self.log(f"[Warning] Not enough clocks: {len(eq_clocks)} equation, {len(ans_clocks)} answers", 'debug')
                     
                     if self.show_window:
-                        cv2.imshow(self.window_name, frame)
+                        cv2.imshow(self.window_name, frame) # Use original frame for display fallback
                         if cv2.waitKey(1) & 0xFF in [ord('q'), ord('Q'), 27]:
                             break
                     
@@ -291,11 +325,14 @@ class ClockSolver:
                     # 1-star: no addition needed, just match the clock
                     total_hours = times[0][0]
                     total_min = times[0][1]
+                    # Fix hour wrapping for display: 0 should be 12
+                    if total_hours == 0: total_hours = 12
                     self.log(f"[Result] {difficulty}-star difficulty: Match time: {total_hours:02d}:{total_min:02d}")
                 else:
                     # 2-star and 3-star: add all times
                     total_minutes = sum(h * 60 + m for h, m in times)
                     total_hours = (total_minutes // 60) % 12
+                    if total_hours == 0: total_hours = 12 # Fix hour wrapping
                     total_min = total_minutes % 60
                     self.log(f"[Result] {difficulty}-star difficulty: Calculated time: {total_hours:02d}:{total_min:02d}")
 
@@ -340,8 +377,9 @@ class ClockSolver:
                     
                     # Store the result and pause
                     self.last_result = (total_hours, total_min)
+                    # IMPORTANT: Store the ADJUSTED frame for the debug display to show the detected image!
+                    self.last_frame = frame_for_detection.copy() 
                     self.last_idx = best_idx
-                    self.last_frame = frame.copy()
                     self.paused = True
                     
                     # Alert the user!
@@ -357,7 +395,8 @@ class ClockSolver:
 
                 # Display window with debug info
                 if self.show_window:
-                    display_frame = self.draw_debug_info(frame, eq_clocks, ans_clocks, 
+                    # Pass the ADJUSTED frame to draw info on it (since detection ran on it)
+                    display_frame = self.draw_debug_info(frame_for_detection, eq_clocks, ans_clocks, 
                                                          self.last_result, self.last_idx)
                     cv2.imshow(self.window_name, display_frame)
                     

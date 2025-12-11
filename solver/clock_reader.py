@@ -19,11 +19,16 @@ def read_clock(roi):
     
     h, w = gray.shape
     center = (w // 2, h // 2)
-    
+
+    # Calculate key radii and minimum hand length based on ROI size
+    min_dim = min(h, w)
+    inner_radius = int(min_dim * 0.15)
+    outer_radius = int(min_dim * 0.45)
+    min_hand_length_contour = int(min_dim * 0.20) # Min length for contour method
+    min_hand_length_line = int(min_dim * 0.25) # Min length for line detection
+
     # Create a mask for the center area (ignore outer tick marks)
     mask = np.zeros_like(gray)
-    inner_radius = int(min(h, w) * 0.15)
-    outer_radius = int(min(h, w) * 0.45)
     cv2.circle(mask, center, outer_radius, 255, -1)
     cv2.circle(mask, center, inner_radius, 0, -1)
     
@@ -67,7 +72,8 @@ def read_clock(roi):
                 max_dist = dist
                 farthest_point = pt
         
-        if farthest_point is None or max_dist < min(h, w) * 0.2:
+        # ADDED: Enforce minimum length check
+        if farthest_point is None or max_dist < min_hand_length_contour:
             continue
         
         # Calculate angle to farthest point
@@ -87,9 +93,9 @@ def read_clock(roi):
     if len(hands) < 2:
         lines = cv2.HoughLinesP(
             thresh, 1, np.pi/180,
-            threshold=int(min(h, w) * 0.15),
-            minLineLength=int(min(h, w) * 0.3),
-            maxLineGap=int(min(h, w) * 0.2)
+            threshold=int(min_dim * 0.15),
+            minLineLength=int(min_dim * 0.3),
+            maxLineGap=int(min_dim * 0.2)
         )
         
         if lines is not None:
@@ -107,7 +113,8 @@ def read_clock(roi):
                     end_x, end_y = x2, y2
                     length = dist2
                 
-                if length < min(h, w) * 0.25:
+                # ADDED: Enforce minimum length check
+                if length < min_hand_length_line:
                     continue
                 
                 dx = end_x - center[0]
@@ -128,23 +135,34 @@ def read_clock(roi):
     # Sort by length - longest is likely minute hand
     hands.sort(key=lambda h: h['length'], reverse=True)
     
-    # Take top 2 hands
-    if len(hands) == 1:
-        minute_angle = hands[0]['angle']
-        hour_angle = hands[0]['angle']
-    else:
-        # The longer hand is minute, shorter is hour
-        minute_angle = hands[0]['angle']
-        hour_angle = hands[1]['angle']
+    # Take top 2 unique hands
+    unique_hands = []
     
+    # Filter for unique angles (handles cases where one physical hand is detected multiple times)
+    for hand in hands:
+        is_unique = True
+        for unique in unique_hands:
+            # Check if angle is within 10 degrees
+            if abs(hand['angle'] - unique['angle']) < 10:
+                is_unique = False
+                break
+        if is_unique:
+            unique_hands.append(hand)
+
+    # Use the top 2 unique hands
+    if len(unique_hands) == 1:
+        minute_angle = unique_hands[0]['angle']
+        hour_angle = unique_hands[0]['angle'] # Fallback to same angle
+    elif len(unique_hands) > 1:
+        # The longer hand is minute, shorter is hour (based on initial length sort)
+        minute_angle = unique_hands[0]['angle']
+        hour_angle = unique_hands[1]['angle']
+    else:
+        return (0, 0)
+
     # Convert angles to time
     minute = round(minute_angle / 6) % 60
     hour = round(hour_angle / 30) % 12
-    
-    # Special case: if hour and minute are very close, might have detected same hand twice
-    if abs(minute_angle - hour_angle) < 15 and len(hands) > 2:
-        # Try the third hand
-        hour_angle = hands[2]['angle']
-        hour = round(hour_angle / 30) % 12
-    
+    if hour == 0: hour = 12 # Convert 0 to 12 o'clock
+
     return hour, minute
