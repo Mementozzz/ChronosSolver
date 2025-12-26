@@ -1,3 +1,5 @@
+development paused, awaiting release of ch3 so that i don't have pointless work to do
+
 # Chronos Clock Solver
 Automatically solves the Chronos time-addition minigame using real-time screen capture + clock hand detection.
 
